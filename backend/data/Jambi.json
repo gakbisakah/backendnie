@@ -1,0 +1,22 @@
+[
+  {"adm4":"15.71.01.1001","desa":"Kelurahan Simpang IV Sipin","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.01.1001"},
+  {"adm4":"15.71.01.1002","desa":"Kelurahan Buluran Kenali","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.01.1002"},
+  {"adm4":"15.71.01.1003","desa":"Kelurahan Teluk Kenali","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.01.1003"},
+  {"adm4":"15.71.01.1004","desa":"Kelurahan Telanaipura","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.01.1004"},
+  {"adm4":"15.71.01.1010","desa":"Kelurahan Penyengat Rendah","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.01.1010"},
+  {"adm4":"15.71.01.1011","desa":"Kelurahan Pematang Sulur","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.01.1011"},
+  {"adm4":"15.71.02.1002","desa":"Kelurahan Pasir Putih","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.02.1002"},
+  {"adm4":"15.71.02.1003","desa":"Kelurahan Tambak Sari","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.02.1003"},
+  {"adm4":"15.71.02.1004","desa":"Kelurahan Thehok","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.02.1004"},
+  {"adm4":"15.71.02.1005","desa":"Kelurahan Wijaya Pura","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.02.1005"},
+  {"adm4":"15.71.02.1006","desa":"Kelurahan Pakuan Baru","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.02.1006"},
+  {"adm4":"15.71.03.1001","desa":"Kelurahan Sijenjang","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.03.1001"},
+  {"adm4":"15.71.03.1002","desa":"Kelurahan Kasang Jaya","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.03.1002"},
+  {"adm4":"15.71.03.1003","desa":"Kelurahan Talang Banjar","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.03.1003"},
+  {"adm4":"15.71.03.1004","desa":"Kelurahan Budiman","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.03.1004"},
+  {"adm4":"15.71.03.1005","desa":"Kelurahan Sulanjana","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.03.1005"},
+  {"adm4":"15.71.03.1006","desa":"Kelurahan Kasang","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.03.1006"},
+  {"adm4":"15.71.03.1007","desa":"Kelurahan Tanjung Sari","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.03.1007"},
+  {"adm4":"15.71.03.1008","desa":"Kelurahan Rajawali","url":"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=15.71.03.1008"}
+
+]
