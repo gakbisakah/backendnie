@@ -13,7 +13,10 @@ import threading
 import time
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": ["https://frontendnie.vercel.app"]}})
+CORS(app, resources={r"/api/*": {"origins": [
+    "http://localhost:3000",   # untuk testing lokal
+    "https://frontendnie.vercel.app"  # domain production
+]}})
 
 
 # --- Ensure folders exist (biar otomatis di Replit)
