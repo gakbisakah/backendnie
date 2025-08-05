@@ -86,7 +86,7 @@ class ChatbotEngine:
     def _validate_lokasi_structure(self, data):
         """Validasi struktur data lokasi"""
         required_fields = ['provinsi', 'kotkab', 'kecamatan', 'desa', 'lon', 'lat', 
-                          'cuaca_saat_ini', 'ringkasan_harian']
+                            'cuaca_saat_ini', 'ringkasan_harian']
         
         if not all(field in data for field in required_fields):
             return False
@@ -197,6 +197,42 @@ class ChatbotEngine:
         
         return None
     
+    def _cari_entitas(self, nama_input: str, data_entitas: List[Dict]) -> Optional[Dict]:
+        """Helper function untuk mencari entitas (hewan/sayuran) dengan fuzzy matching."""
+        nama_input_lower = nama_input.lower().strip()
+        entitas_names = [ent["nama"].lower() for ent in data_entitas]
+
+        match = process.extractOne(nama_input_lower, entitas_names, scorer=fuzz.ratio)
+
+        # Menggunakan threshold 75 untuk akurasi yang lebih baik
+        if match and match[1] >= 75: 
+            # Temukan dictionary entitas asli berdasarkan nama yang cocok
+            for ent in data_entitas:
+                if ent["nama"].lower() == match[0]:
+                    return ent
+        return None
+        
+    def cari_lokasi_cocok(self, entitas: Dict, lokasi_list: Dict) -> List[Dict]:
+        """Fungsi untuk mencari lokasi yang cocok berdasarkan kriteria entitas"""
+        hasil = []
+        for lokasi_key, lokasi in lokasi_list.items():
+            # Gunakan rata-rata harian untuk kecocokan jangka panjang
+            suhu = lokasi["ringkasan_harian"]["t_avg"]
+            kelembapan = lokasi["ringkasan_harian"]["hu_avg"]
+
+            if (
+                entitas["suhu_min"] <= suhu <= entitas["suhu_max"] and
+                entitas["hu_min"] <= kelembapan <= entitas["hu_max"]
+            ):
+                hasil.append({
+                    "desa": lokasi["desa"],
+                    "kecamatan": lokasi["kecamatan"],
+                    "kotkab": lokasi["kotkab"],
+                    "provinsi": lokasi["provinsi"]
+                })
+        
+        return hasil
+
     def process_question(self, question: str) -> str:
         """Main function untuk memproses pertanyaan"""
         if not self.loaded:
@@ -270,36 +306,47 @@ class ChatbotEngine:
             lokasi = match.group(2)
             return self._handle_ringkasan_cuaca(lokasi)
         
-        # 24. Daftar hewan
+        # 13. [Entitas] cocok di mana? (Combined handler for animal/vegetable)
+        match_cocok_di_mana = re.search(r'(.+?) cocok di mana', question)
+        if match_cocok_di_mana:
+            nama_entitas_input = match_cocok_di_mana.group(1).strip()
+            
+            # Try to find in animals first
+            entitas_hewan = self._cari_entitas(nama_entitas_input, self.hewan_data)
+            if entitas_hewan:
+                return self._handle_entitas_cocok_lokasi(nama_entitas_input, 'hewan')
+            
+            # If not found in animals, try in vegetables
+            entitas_sayuran = self._cari_entitas(nama_entitas_input, self.sayuran_data)
+            if entitas_sayuran:
+                return self._handle_entitas_cocok_lokasi(nama_entitas_input, 'sayuran')
+            
+            # If not found in either
+            return f"Maaf, **{nama_entitas_input.title()}** tidak ditemukan dalam database hewan maupun sayuran. Pastikan nama entitas sudah benar atau coba nama lain."
+
+        # 14. [Hewan] cocok dipelihara di [lokasi]?
+        if re.search(r'apakah (.+?) cocok dipelihara di (.+)\?', question):
+            match = re.search(r'apakah (.+?) cocok dipelihara di (.+)\?', question)
+            nama_hewan = match.group(1).strip()
+            nama_lokasi = match.group(2).strip()
+            return self._handle_suhu_cocok_hewan(nama_lokasi, nama_hewan)
+        
+        # 15. [Sayuran] cocok ditanam di [lokasi]?
+        if re.search(r'apakah (.+?) cocok ditanam di (.+)\?', question):
+            match = re.search(r'apakah (.+?) cocok ditanam di (.+)\?', question)
+            nama_sayuran = match.group(1).strip()
+            nama_lokasi = match.group(2).strip()
+            return self._handle_suhu_cocok_sayuran(nama_lokasi, nama_sayuran)
+
+        # 16. Daftar hewan
         if re.search(r'(daftar hewan|hewan apa saja|hewan yang dapat dicek)', question):
             return self._handle_daftar_hewan()
         
-        # 25. Daftar sayuran
+        # 17. Daftar sayuran
         if re.search(r'(daftar sayuran|sayuran apa saja)', question):
             return self._handle_daftar_sayuran()
         
-        # 27. Apakah suhu cocok untuk hewan
-        if re.search(r'apakah suhu.* di (.+) cocok untuk (.+)', question):
-            match = re.search(r'apakah suhu.* di (.+) cocok untuk (.+)', question)
-            lokasi = match.group(1)
-            hewan = match.group(2)
-            return self._handle_suhu_cocok_hewan(lokasi, hewan)
-        
-        # 28. Hewan apa saja yang cocok di [lokasi]
-        if re.search(r'hewan apa saja yang cocok.* di (.+)', question):
-            match = re.search(r'hewan apa saja yang cocok.* di (.+)', question)
-            lokasi = match.group(1)
-            return self._handle_hewan_cocok_lokasi(lokasi)
-        
-        # 34. Sayuran apa saja yang cocok di [lokasi]
-        if re.search(r'sayuran apa saja yang cocok.* di (.+)', question):
-            match = re.search(r'sayuran apa saja yang cocok.* di (.+)', question)
-            lokasi = match.group(1)
-            return self._handle_sayuran_cocok_lokasi(lokasi)
-        
-        # Tambahkan pattern lainnya...
-        
-        return "Maaf, saya tidak mengerti pertanyaan Anda. Silakan coba pertanyaan lain."
+        return "Maaf, saya tidak mengerti pertanyaan Anda. Coba tanyakan hal lain seperti 'Cuaca di Jakarta' atau 'Daftar hewan'."
     
     def process_query(self, query: str) -> str:
         """Alias untuk process_question - untuk kompatibilitas dengan main.py"""
@@ -394,6 +441,59 @@ class ChatbotEngine:
         sayuran_names = [sayuran['nama'] for sayuran in self.sayuran_data]
         return f"Sayuran yang tersedia: {', '.join(sayuran_names)}."
     
+    def _handle_entitas_cocok_lokasi(self, nama_entitas_input: str, tipe_entitas: str) -> str:
+        """
+        Handler untuk pertanyaan '[Entitas] cocok di mana?'
+        nama_entitas_input: Nama entitas yang diekstrak dari pertanyaan
+        tipe_entitas: 'hewan' atau 'sayuran'
+        """
+        # Ambil data yang sesuai
+        if tipe_entitas.lower() == 'hewan':
+            data_entitas = self.hewan_data
+        elif tipe_entitas.lower() == 'sayuran':
+            data_entitas = self.sayuran_data
+        else:
+            return "Tipe entitas tidak valid. Harus 'hewan' atau 'sayuran'."
+
+        # Cari entitas di database menggunakan fuzzy matching
+        entitas = self._cari_entitas(nama_entitas_input, data_entitas)
+
+        if not entitas:
+            # This case should ideally be handled before calling this function
+            # in process_question, but as a fallback:
+            return f"Maaf, **{nama_entitas_input.title()}** tidak ditemukan dalam database {tipe_entitas}. Pastikan nama entitas sudah benar atau coba nama lain."
+
+        # Tambahkan informasi rentang lingkungan ideal dari entitas yang ditemukan
+        entitas_info = (
+            f"Untuk **{entitas['nama']}**, rentang suhu ideal adalah {entitas['suhu_min']}°C - {entitas['suhu_max']}°C "
+            f"dan kelembapan ideal adalah {entitas['hu_min']}% - {entitas['hu_max']}%."
+        )
+
+        # Cari lokasi yang cocok
+        lokasi_cocok = self.cari_lokasi_cocok(entitas, self.lokasi_data)
+        
+        if lokasi_cocok:
+            lokasi_names = [
+                f"{l['desa']}, {l['kecamatan']}, {l['kotkab']}, {l['provinsi']}"
+                for l in lokasi_cocok
+            ]
+            # Batasi hingga 5 lokasi pertama untuk ringkasan di chat
+            display_locations = ', '.join(lokasi_names[:5])
+            if len(lokasi_names) > 5:
+                display_locations += "..."
+            return (
+                f"Berdasarkan data rata-rata cuaca harian, **{entitas['nama']}** cocok di beberapa lokasi, "
+                f"di antaranya: {display_locations}. "
+                f"{entitas_info} " # Sertakan info di sini
+                f"Untuk daftar lengkap, silakan gunakan fitur pencarian peta."
+            )
+        else:
+            return (
+                f"Maaf, tidak ada lokasi yang cocok untuk **{entitas['nama']}** berdasarkan data cuaca harian yang tersedia. "
+                f"{entitas_info} " # Sertakan info di sini juga
+                f"Mungkin Anda bisa mencoba mencari di lokasi lain atau dengan entitas yang berbeda."
+            )
+    
     def _handle_suhu_cocok_hewan(self, nama_lokasi: str, nama_hewan: str) -> str:
         key, lokasi = self.find_lokasi(nama_lokasi)
         if not lokasi:
@@ -419,44 +519,32 @@ class ChatbotEngine:
                 alasan.append(f"kelembapan {kelembapan_saat_ini}% (ideal: {hewan['hu_min']}-{hewan['hu_max']}%)")
             
             return f"Tidak, kondisi saat ini di {nama_lokasi.title()} tidak cocok untuk {hewan['nama']} karena {' dan '.join(alasan)}."
-    
-    def _handle_hewan_cocok_lokasi(self, nama_lokasi: str) -> str:
+
+    def _handle_suhu_cocok_sayuran(self, nama_lokasi: str, nama_sayuran: str) -> str:
         key, lokasi = self.find_lokasi(nama_lokasi)
         if not lokasi:
             return f"Maaf, lokasi '{nama_lokasi}' tidak ditemukan."
         
-        t_avg = lokasi['ringkasan_harian']['t_avg']
-        hu_avg = lokasi['ringkasan_harian']['hu_avg']
-        
-        hewan_cocok = []
-        for hewan in self.hewan_data:
-            if (hewan['suhu_min'] <= t_avg <= hewan['suhu_max'] and 
-                hewan['hu_min'] <= hu_avg <= hewan['hu_max']):
-                hewan_cocok.append(hewan['nama'])
-        
-        if hewan_cocok:
-            return f"Hewan yang cocok dipelihara di {nama_lokasi.title()} berdasarkan suhu dan kelembapan rata-rata harian: {', '.join(hewan_cocok)}."
-        else:
-            return f"Tidak ada hewan dalam database yang cocok dengan kondisi rata-rata di {nama_lokasi.title()}."
-    
-    def _handle_sayuran_cocok_lokasi(self, nama_lokasi: str) -> str:
-        key, lokasi = self.find_lokasi(nama_lokasi)
-        if not lokasi:
-            return f"Maaf, lokasi '{nama_lokasi}' tidak ditemukan."
-        
+        sayuran = self.find_sayuran(nama_sayuran)
+        if not sayuran:
+            return f"Maaf, sayuran '{nama_sayuran}' tidak ditemukan."
+
         suhu_saat_ini = lokasi['cuaca_saat_ini']['suhu']
         kelembapan_saat_ini = lokasi['cuaca_saat_ini']['kelembapan']
-        
-        sayuran_cocok = []
-        for sayuran in self.sayuran_data:
-            if (sayuran['suhu_min'] <= suhu_saat_ini <= sayuran['suhu_max'] and 
-                sayuran['hu_min'] <= kelembapan_saat_ini <= sayuran['hu_max']):
-                sayuran_cocok.append(sayuran['nama'])
-        
-        if sayuran_cocok:
-            return f"Sayuran yang cocok ditanam di {nama_lokasi.title()} dengan kondisi saat ini: {', '.join(sayuran_cocok)}."
+
+        suhu_cocok = sayuran['suhu_min'] <= suhu_saat_ini <= sayuran['suhu_max']
+        kelembapan_cocok = sayuran['hu_min'] <= kelembapan_saat_ini <= sayuran['hu_max']
+
+        if suhu_cocok and kelembapan_cocok:
+            return f"Ya, suhu dan kelembapan saat ini di {nama_lokasi.title()} cocok untuk menanam {sayuran['nama']}."
         else:
-            return f"Tidak ada sayuran dalam database yang cocok dengan kondisi saat ini di {nama_lokasi.title()}."
+            alasan = []
+            if not suhu_cocok:
+                alasan.append(f"suhu {suhu_saat_ini}°C (ideal: {sayuran['suhu_min']}-{sayuran['suhu_max']}°C)")
+            if not kelembapan_cocok:
+                alasan.append(f"kelembapan {kelembapan_saat_ini}% (ideal: {sayuran['hu_min']}-{sayuran['hu_max']}%)")
+            
+            return f"Tidak, kondisi saat ini di {nama_lokasi.title()} tidak cocok untuk menanam {sayuran['nama']} karena {' dan '.join(alasan)}."
 
 # Example usage
 if __name__ == "__main__":
@@ -474,7 +562,20 @@ if __name__ == "__main__":
             "Koordinat Surabaya",
             "Data provinsi apa saja yang tersedia",
             "Daftar hewan",
-            "Hewan apa saja yang cocok dipelihara di Medan"
+            "Daftar sayuran",
+            "Hewan cocok di mana?",
+            "Domba cocok di mana?",
+            "Sayuran cocok di mana?",
+            "Cabai cocok di mana?",
+            "Apakah ayam cocok dipelihara di Medan?",
+            "Apakah cabai cocok ditanam di Binjai?",
+            "Sapi cocok di mana?", # Test with fuzzy match for animal
+            "Bayam cocok di mana?", # Test with fuzzy match for vegetable
+            "Apakah padi cocok ditanam di Indramayu?",
+            "Pucuk Jahe cocok di mana?", # Test the specific case
+            "Burung Dara cocok di mana?", # Test the specific case
+            "Pigeon cocok di mana?", # Test the specific case
+            "Ayam cocok di mana?", # Test the specific case
         ]
         
         for question in test_questions:
