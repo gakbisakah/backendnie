@@ -17,7 +17,8 @@ from laporan_handler import simpan_laporan
 app = Flask(__name__)
 
 # ✅ Izinkan semua domain (termasuk Vercel)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "https://frontendnie.vercel.app"}})
+
 
 # Direktori penyimpanan laporan
 LAPORAN_DIR = os.path.join(os.path.dirname(__file__), 'laporan')
@@ -219,6 +220,8 @@ def nearest_location():
         }
     })
 
-# ✅ Jangan jalankan .run() jika di hosting
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    from flask_cors import CORS
+    CORS(app)
+    app.run()
