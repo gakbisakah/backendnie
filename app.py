@@ -1,5 +1,3 @@
-# main.py
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
@@ -10,22 +8,22 @@ import threading
 import time
 import math
 
-# Modul internal (pastikan file .py-nya tersedia)
 from ai_engine import start_auto_cache 
 from data_filter_engine import DataFilterEngine 
 from chatbot_engine import ChatbotEngine 
 from recommendation_module import smart_rekomendasi 
 from laporan_handler import simpan_laporan
 
-# --- Initialize Flask App ---
 app = Flask(__name__)
+
+# ✅ Izinkan semua domain (termasuk Vercel)
 CORS(app)
 
-# --- Directory Configurations ---
+# Direktori penyimpanan laporan
 LAPORAN_DIR = os.path.join(os.path.dirname(__file__), 'laporan')
 os.makedirs(LAPORAN_DIR, exist_ok=True)
 
-RECYCLE_BIN_MOVER_SCRIPT = os.path.join('D:', os.sep, 'ai-smartcare-map', 'backend', 'Sistem', 'recycle_bin_mover.py')
+# Konstanta
 DEFAULT_LAT = -2.0
 DEFAULT_LON = 118.0
 DATA_FILTER_INTERVAL = 7200  # 2 jam
@@ -34,7 +32,11 @@ DATA_FILTER_INTERVAL = 7200  # 2 jam
 data_filter_instance = DataFilterEngine()
 chatbot_instance = ChatbotEngine()
 
-# Background task untuk filter data berkala
+# ✅ Jalankan hanya jika bukan di server hosting
+def is_running_on_localhost():
+    return os.environ.get("LOCAL_DEV", "") == "1"
+
+# Background task
 def scheduled_data_filter_task():
     time.sleep(10)
     while True:
@@ -54,15 +56,20 @@ start_auto_cache()
 print("Starting background data filtering...")
 threading.Thread(target=scheduled_data_filter_task, daemon=True).start()
 
-print(f"Starting file mover from: {RECYCLE_BIN_MOVER_SCRIPT}")
-try:
-    subprocess.Popen(['pythonw.exe', RECYCLE_BIN_MOVER_SCRIPT],
-                     cwd=os.path.dirname(RECYCLE_BIN_MOVER_SCRIPT),
-                     stdout=subprocess.PIPE,
-                     stderr=subprocess.PIPE)
-    print("Recycle Bin file mover service started.")
-except Exception as e:
-    print(f"ERROR: {e}")
+# ✅ Jangan jalankan file mover jika di server Linux (PythonAnywhere)
+if os.name == 'nt':
+    RECYCLE_BIN_MOVER_SCRIPT = os.path.join('D:', os.sep, 'ai-smartcare-map', 'backend', 'Sistem', 'recycle_bin_mover.py')
+    print(f"Starting file mover from: {RECYCLE_BIN_MOVER_SCRIPT}")
+    try:
+        subprocess.Popen(['pythonw.exe', RECYCLE_BIN_MOVER_SCRIPT],
+                         cwd=os.path.dirname(RECYCLE_BIN_MOVER_SCRIPT),
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
+        print("Recycle Bin file mover service started.")
+    except Exception as e:
+        print(f"ERROR: {e}")
+else:
+    print("🟡 Lewati Recycle Bin file mover (bukan Windows)")
 
 # --- Flask Endpoints ---
 
@@ -71,13 +78,11 @@ def api_laporan():
     data = request.json
     if 'waktu' not in data:
         data['waktu'] = datetime.now().isoformat()
-
     try:
         data['lat'] = float(data.get('lat', DEFAULT_LAT))
         data['lon'] = float(data.get('lon', DEFAULT_LON))
     except (ValueError, TypeError):
         data['lat'], data['lon'] = DEFAULT_LAT, DEFAULT_LON
-
     try:
         simpan_laporan(data)
         return jsonify({"status": "ok", "message": "Laporan berhasil disimpan."}), 201
@@ -115,16 +120,14 @@ def chatbot():
     jawaban = chatbot_instance.process_query(user_input)
     return jsonify({"jawaban": jawaban})
 
-# --- Haversine Distance ---
 def haversine(lat1, lon1, lat2, lon2):
-    R = 6371  # Earth radius in km
+    R = 6371
     d_lat = math.radians(lat2 - lat1)
     d_lon = math.radians(lon2 - lon1)
     a = math.sin(d_lat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(d_lon/2)**2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    return R * c  # in kilometers
+    return R * c
 
-# --- Nearest Location & Recommendations ---
 @app.route('/api/nearest-location', methods=['GET'])
 def nearest_location():
     try:
@@ -216,6 +219,6 @@ def nearest_location():
         }
     })
 
-# --- Run the Flask app ---
+# ✅ Jangan jalankan .run() jika di hosting
 if __name__ == '__main__':
     app.run(debug=True)
